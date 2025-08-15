@@ -5,7 +5,7 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Allow the workflow to download release assets (Fastly CLI) from GitHub
+# Let the workflow read release assets, though we won't need auth for direct downloads
 permissions:
   contents: read
 
@@ -13,9 +13,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    # Make the token available to all steps, including any "pre" scripts
     env:
-      GITHUB_TOKEN: ${{ github.token }}
+      FASTLY_CLI_VERSION: v11.4.0
 
     steps:
       - name: Checkout repo
@@ -30,18 +29,30 @@ jobs:
         run: |
           if [ -f package.json ]; then npm ci --no-audit --fund=false; fi
 
-      # ✅ Install the Fastly CLI explicitly (pinned) using a GitHub token
-      - name: Install Fastly CLI
-        uses: fastly/cli-action@v3
-        with:
-          version: v11.4.0
-          github-token: ${{ github.token }}
+      # Install Fastly CLI by downloading the release tarball directly (no GitHub token needed)
+      - name: Install Fastly CLI ${{ env.FASTLY_CLI_VERSION }}
+        run: |
+          set -euxo pipefail
+          curl -fsSL -o fastly.tgz \
+            https://github.com/fastly/cli/releases/download/${FASTLY_CLI_VERSION}/fastly_${FASTLY_CLI_VERSION#v}_linux_amd64.tar.gz
+          tar -xzf fastly.tgz
+          sudo mv fastly*/fastly /usr/local/bin/fastly
+          fastly --version
 
-      # ✅ With CLI present, the compute action won't fail its "pre" step
-      - name: Build & deploy to Fastly Compute
-        uses: fastly/compute-actions@v5
-        with:
-          token: ${{ secrets.FASTLY_API_TOKEN }}        # Fastly automation token (repo secret)
-          service_id: ${{ secrets.FASTLY_SERVICE_ID }}  # Fastly service ID (repo secret)
-          project_directory: .
-          verbose: true
+      # Build the Compute artifact (uses fastly.toml + src/index.ts)
+      - name: Build Compute package
+        run: |
+          set -euxo pipefail
+          fastly compute build --non-interactive
+
+      # Deploy to your service using secrets
+      - name: Deploy to Fastly
+        env:
+          FASTLY_API_TOKEN: ${{ secrets.FASTLY_API_TOKEN }}
+          FASTLY_SERVICE_ID: ${{ secrets.FASTLY_SERVICE_ID }}
+        run: |
+          set -euxo pipefail
+          fastly compute deploy \
+            --non-interactive \
+            --service-id "$FASTLY_SERVICE_ID" \
+            --token "$FASTLY_API_TOKEN"

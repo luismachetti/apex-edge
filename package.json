@@ -1,0 +1,12 @@
+{
+  "name": "apex-edge",
+  "private": true,
+  "scripts": {
+    "build": "fastly compute build",
+    "deploy": "fastly compute deploy --quiet"
+  },
+  "devDependencies": {
+    "@fastly/js-compute": "^3.31.0",
+    "typescript": "^5.5.3"
+  }
+}

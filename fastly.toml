@@ -1,0 +1,4 @@
+manifest_version = 3
+name = "apex-edge"
+description = "Apex - MEDDPICC (edge)"
+language = "javascript"

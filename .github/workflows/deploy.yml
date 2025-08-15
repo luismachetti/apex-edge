@@ -5,13 +5,18 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Needed so the action can fetch the Fastly CLI release from GitHub
+# Allow the workflow to download release assets (Fastly CLI) from GitHub
 permissions:
   contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    # Make the token available to all steps, including any "pre" scripts
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -25,14 +30,18 @@ jobs:
         run: |
           if [ -f package.json ]; then npm ci --no-audit --fund=false; fi
 
+      # ✅ Install the Fastly CLI explicitly (pinned) using a GitHub token
+      - name: Install Fastly CLI
+        uses: fastly/cli-action@v3
+        with:
+          version: v11.4.0
+          github-token: ${{ github.token }}
+
+      # ✅ With CLI present, the compute action won't fail its "pre" step
       - name: Build & deploy to Fastly Compute
         uses: fastly/compute-actions@v5
-        env:
-          GITHUB_TOKEN: ${{ github.token }}   # allows fetching CLI release
         with:
           token: ${{ secrets.FASTLY_API_TOKEN }}        # Fastly automation token (repo secret)
           service_id: ${{ secrets.FASTLY_SERVICE_ID }}  # Fastly service ID (repo secret)
           project_directory: .
-          cli_version: "v11.4.0"                        # pin CLI to avoid 'latest' auth issue
-          comment: "GitHub Actions deploy ${{ github.sha }}"
           verbose: true

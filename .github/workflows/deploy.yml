@@ -1,0 +1,14 @@
+name: Deploy to Fastly
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: fastly/compute-actions@v5
+        with:
+          service_id: ${{ secrets.FASTLY_SERVICE_ID }}
+          api_token:  ${{ secrets.FASTLY_API_TOKEN }}
+          comment: "GitHub Actions deploy"

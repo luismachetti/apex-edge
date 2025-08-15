@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Needed so the action can fetch the Fastly CLI release from GitHub
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -12,22 +16,23 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Helpful for JS projects; safe to include
       - name: Setup Node (for js-compute bundling)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # If package.json is present, install quickly (no harm if minimal)
-      - name: Install deps (optional)
+      - name: Install deps (if package.json exists)
         run: |
           if [ -f package.json ]; then npm ci --no-audit --fund=false; fi
 
       - name: Build & deploy to Fastly Compute
         uses: fastly/compute-actions@v5
+        env:
+          GITHUB_TOKEN: ${{ github.token }}   # allows fetching CLI release
         with:
-          token: ${{ secrets.FASTLY_API_TOKEN }}
-          service_id: ${{ secrets.FASTLY_SERVICE_ID }}
+          token: ${{ secrets.FASTLY_API_TOKEN }}        # Fastly automation token (repo secret)
+          service_id: ${{ secrets.FASTLY_SERVICE_ID }}  # Fastly service ID (repo secret)
           project_directory: .
+          cli_version: "v11.4.0"                        # pin CLI to avoid 'latest' auth issue
           comment: "GitHub Actions deploy ${{ github.sha }}"
           verbose: true

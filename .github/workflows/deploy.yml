@@ -1,18 +1,15 @@
 name: Deploy to Fastly
-
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
-# Let the workflow read release assets, though we won't need auth for direct downloads
 permissions:
   contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     env:
       FASTLY_CLI_VERSION: v11.4.0
 
@@ -20,17 +17,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node (for js-compute bundling)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install deps (if package.json exists)
-        run: |
-          if [ -f package.json ]; then npm ci --no-audit --fund=false; fi
-
-      # Install Fastly CLI by downloading the release tarball directly (no GitHub token needed)
-      - name: Install Fastly CLI ${{ env.FASTLY_CLI_VERSION }}
+      - name: Install Fastly CLI
         run: |
           set -euxo pipefail
           curl -fsSL -o fastly.tgz \
@@ -39,13 +26,11 @@ jobs:
           sudo mv fastly*/fastly /usr/local/bin/fastly
           fastly --version
 
-      # Build the Compute artifact (uses fastly.toml + src/index.ts)
       - name: Build Compute package
         run: |
           set -euxo pipefail
           fastly compute build --non-interactive
 
-      # Deploy to your service using secrets
       - name: Deploy to Fastly
         env:
           FASTLY_API_TOKEN: ${{ secrets.FASTLY_API_TOKEN }}

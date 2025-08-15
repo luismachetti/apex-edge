@@ -12,9 +12,22 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # Helpful for JS projects; safe to include
+      - name: Setup Node (for js-compute bundling)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # If package.json is present, install quickly (no harm if minimal)
+      - name: Install deps (optional)
+        run: |
+          if [ -f package.json ]; then npm ci --no-audit --fund=false; fi
+
       - name: Build & deploy to Fastly Compute
         uses: fastly/compute-actions@v5
         with:
-          token: ${{ secrets.FASTLY_API_TOKEN }}      # ← your Fastly token (repo secret)
-          service_id: ${{ secrets.FASTLY_SERVICE_ID }}# ← your Fastly service ID (repo secret)
+          token: ${{ secrets.FASTLY_API_TOKEN }}
+          service_id: ${{ secrets.FASTLY_SERVICE_ID }}
+          project_directory: .
           comment: "GitHub Actions deploy ${{ github.sha }}"
+          verbose: true
